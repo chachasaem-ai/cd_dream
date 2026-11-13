@@ -1,1 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>화면 캡쳐 연습</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--text:#1f2430;--sub:#5b6475;--accent:#4f6bed;--ok:#1f9d55;--line:#dfe3ee;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161c;--card:#1e222b;--text:#eceff5;--sub:#9aa3b5;--accent:#7b8fff;--ok:#43c179;--line:#323847}}
+:root[data-theme="dark"]{--bg:#14161c;--card:#1e222b;--text:#eceff5;--sub:#9aa3b5;--accent:#7b8fff;--ok:#43c179;--line:#323847}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;line-height:1.55}
+main{max-width:860px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:26px;margin:8px 0 4px}
+p.lead{color:var(--sub);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+h2{font-size:18px;margin:0 0 10px}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tabs button{flex:1;padding:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:10px;font-size:15px;cursor:pointer}
+.tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.keys{display:grid;gap:8px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:10px}
+kbd{display:inline-block;min-width:28px;text-align:center;padding:3px 8px;border:1px solid var(--line);border-bottom-width:3px;border-radius:7px;background:var(--bg);font:600 14px ui-monospace,monospace}
+.row span.d{color:var(--sub);font-size:14px}
+.mission{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
+.mission .ck{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);flex:none;display:grid;place-items:center;font-weight:700;color:#fff}
+.mission.done{border-color:var(--ok)}
+.mission.done .ck{background:var(--ok);border-color:var(--ok)}
+.target{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:8px 0}
+.target div{border:2px dashed var(--accent);border-radius:12px;padding:16px 8px;text-align:center;font-weight:700}
+#paste{min-height:190px;border:2px dashed var(--accent);border-radius:12px;display:grid;place-items:center;text-align:center;color:var(--sub);padding:12px;outline:none;overflow:auto}
+#paste:focus{background:rgba(79,107,237,.07)}
+#paste img{max-width:100%;border-radius:8px}
+.log{font-size:14px;color:var(--sub);min-height:22px}
+.btn{padding:9px 14px;border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:10px;cursor:pointer;font-size:14px}
+.bar{height:10px;background:var(--line);border-radius:6px;overflow:hidden;margin:6px 0 12px}
+.bar i{display:block;height:100%;width:0;background:var(--ok);transition:width .3s}
+.pane{display:none}.pane.on{display:block}
+</style>
+</head>
+<body>
+<main>
+  <h1>📸 화면 캡쳐 연습</h1>
+  <p class="lead">단축키를 눌러 보고, 캡쳐한 그림을 아래 칸에 붙여넣어 연습해 보세요.</p>
 
+  <div class="card">
+    <h2>1. 내 컴퓨터 고르기</h2>
+    <div class="tabs">
+      <button id="tw" class="on">Windows</button>
+      <button id="tm">Mac</button>
+      <button id="tk">웨일북</button>
+    </div>
+    <div id="win" class="pane on keys">
+      <div class="row"><kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd><span class="d">원하는 영역 드래그해서 캡쳐 (가장 추천)</span></div>
+      <div class="row"><kbd>PrtScn</kbd><span class="d">전체 화면 캡쳐 (클립보드에 복사)</span></div>
+      <div class="row"><kbd>Alt</kbd>+<kbd>PrtScn</kbd><span class="d">현재 창만 캡쳐</span></div>
+      <div class="row"><kbd>Ctrl</kbd>+<kbd>V</kbd><span class="d">캡쳐한 그림 붙여넣기</span></div>
+    </div>
+    <div id="mac" class="pane keys">
+      <div class="row"><kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>4</kbd><span class="d">원하는 영역 드래그해서 캡쳐</span></div>
+      <div class="row"><kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>3</kbd><span class="d">전체 화면 캡쳐 (바탕화면에 저장)</span></div>
+      <div class="row"><kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd><span class="d">캡쳐 도구 열기 (영상 녹화도 가능)</span></div>
+      <div class="row"><kbd>Ctrl</kbd>+<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>4</kbd><span class="d">클립보드에 복사한 뒤 <kbd>⌘</kbd>+<kbd>V</kbd>로 붙여넣기</span></div>
+    </div>
+    <div id="whale" class="pane keys">
+      <div class="row"><kbd>Alt</kbd>+<kbd>1</kbd><span class="d">직접지정: 마우스로 드래그해서 원하는 영역 캡쳐</span></div>
+      <div class="row"><kbd>Alt</kbd>+<kbd>2</kbd><span class="d">영역선택: 웹페이지의 한 부분을 골라서 캡쳐</span></div>
+      <div class="row"><kbd>Alt</kbd>+<kbd>3</kbd><span class="d">전체페이지: 웹페이지 전체를 캡쳐</span></div>
+      <div class="row"><kbd>Alt</kbd>+<kbd>4</kbd><span class="d">전체화면: 지금 보이는 화면 그대로 캡쳐</span></div>
+      <div class="row"><span class="d">🖱️ 웨일 브라우저 주소창 옆 <b>[캡처]</b> 아이콘을 눌러도 같은 4가지 방법이 나와요. 캡처 후 미리보기, 저장, 복사를 고를 수 있어요.</span></div>
+    </div>
+    <div class="log" id="keylog">키를 눌러 보세요. 눌린 키가 여기에 표시됩니다.</div>
+  </div>
+
+  <div class="card">
+    <h2>2. 미션</h2>
+    <div class="bar"><i id="prog"></i></div>
+    <div class="mission" id="m1"><div class="ck">✓</div><div><b>미션 1</b> 캡쳐 단축키를 눌러 보기</div></div>
+    <div class="mission" id="m2"><div class="ck">✓</div><div><b>미션 2</b> 아래 세 개의 박스 중 <b id="goal">별 박스</b>만 캡쳐해서 붙여넣기</div></div>
+    <div class="target"><div>⭐ 별 박스</div><div>🌙 달 박스</div><div>☀️ 해 박스</div></div>
+    <div class="mission" id="m3"><div class="ck">✓</div><div><b>미션 3</b> 캡쳐한 그림을 붙여넣기 칸에 넣기</div></div>
+  </div>
+
+  <div class="card">
+    <h2>3. 붙여넣기 칸</h2>
+    <div id="paste" tabindex="0">여기를 한 번 클릭한 뒤<br><b>Ctrl+V</b> (Mac은 ⌘+V) 를 눌러 캡쳐한 그림을 붙여넣으세요.</div>
+    <p style="margin:10px 0 0;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="clear">지우기</button>
+      <button class="btn" id="reset">처음부터 다시</button>
+    </p>
+    <div class="log" id="msg"></div>
+  </div>
+</main>
+<script>
+(function(){
+  var done={m1:false,m2:false,m3:false};
+  var goals=["⭐ 별 박스","🌙 달 박스","☀️ 해 박스"];
+  var goal=goals[Math.floor(Math.random()*3)];
+  function setGoal(){document.getElementById("goal").textContent=goal+"";}
+  setGoal();
+  function mark(id){
+    if(done[id])return;done[id]=true;
+    document.getElementById(id).classList.add("done");
+    var n=Object.keys(done).filter(function(k){return done[k];}).length;
+    document.getElementById("prog").style.width=(n/3*100)+"%";
+    if(n===3)document.getElementById("msg").textContent="🎉 모든 미션 완료! 정말 잘했어요!";
+  }
+  var names=["win","mac","whale"],btns={win:"tw",mac:"tm",whale:"tk"};
+  function tab(n){
+    names.forEach(function(x){
+      document.getElementById(btns[x]).classList.toggle("on",x===n);
+      document.getElementById(x).classList.toggle("on",x===n);
+    });
+  }
+  names.forEach(function(x){document.getElementById(btns[x]).onclick=function(){tab(x)};});
+  if(/Mac/i.test(navigator.platform||""))tab("mac");
+
+  document.addEventListener("keydown",function(e){
+    var parts=[];
+    if(e.ctrlKey)parts.push("Ctrl");
+    if(e.metaKey)parts.push("Win/⌘");
+    if(e.altKey)parts.push("Alt");
+    if(e.shiftKey)parts.push("Shift");
+    var k=e.key;
+    if(["Control","Meta","Alt","Shift"].indexOf(k)<0)parts.push(k==="PrintScreen"?"PrtScn":k.toUpperCase());
+    document.getElementById("keylog").textContent="누른 키: "+parts.join(" + ");
+    var s=(e.metaKey&&e.shiftKey&&/^[345s]$/i.test(k))||k==="PrintScreen"||(e.altKey&&/^Digit[1-4]$/.test(e.code));
+    if(s)mark("m1");
+  });
+  document.addEventListener("keyup",function(e){
+    if(e.key==="PrintScreen")mark("m1");
+  });
+
+  var box=document.getElementById("paste");
+  function show(blob){
+    var url=URL.createObjectURL(blob);
+    var img=new Image();
+    img.onload=function(){
+      box.innerHTML="";box.appendChild(img);
+      mark("m1");mark("m2");mark("m3");
+      document.getElementById("msg").textContent="✅ 붙여넣기 성공! 그림 크기: "+img.naturalWidth+" × "+img.naturalHeight;
+    };
+    img.src=url;
+  }
+  document.addEventListener("paste",function(e){
+    var items=(e.clipboardData||{}).items||[];
+    for(var i=0;i<items.length;i++){
+      if(items[i].type.indexOf("image")===0){
+        e.preventDefault();show(items[i].getAsFile());return;
+      }
+    }
+    document.getElementById("msg").textContent="그림이 아닌 내용이에요. 먼저 화면을 캡쳐한 뒤 다시 붙여넣어 보세요.";
+  });
+  box.addEventListener("click",function(){box.focus();});
+  document.getElementById("clear").onclick=function(){
+    box.innerHTML="여기를 한 번 클릭한 뒤<br><b>Ctrl+V</b> (Mac은 ⌘+V) 를 눌러 캡쳐한 그림을 붙여넣으세요.";
+    document.getElementById("msg").textContent="";
+  };
+  document.getElementById("reset").onclick=function(){
+    location.reload();
+  };
+})();
+</script>
+</body>
+</html>
