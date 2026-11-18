@@ -32,6 +32,7 @@ h1{margin:4px 0;font-size:clamp(26px,5vw,40px)}
 .food-shrimp::before{inset:10px 16px}
 .food-shrimp::after{content:"";position:absolute;right:-16px;top:10px;width:24px;height:30px;background:inherit;border-radius:50% 10% 50% 10%;transform:rotate(-20deg)}
 .food-sausage,.food-shrimp{background:none!important;box-shadow:none;border-radius:0}.food-sausage::before,.food-shrimp::before,.food-shrimp::after{display:none}.food-shrimp{width:110px;height:64px;margin-right:0}.food-sausage svg,.food-shrimp svg{filter:drop-shadow(0 3px 3px #0006)}
+.food-beef,.food-squid,.food-octopus{background:none!important;box-shadow:none;border-radius:0}.food-beef::before,.food-squid::before,.food-octopus::before{display:none}.food-beef{width:104px;height:84px}.food-squid{width:124px;height:60px}.food-octopus{width:96px;height:88px}.food-beef svg,.food-squid svg,.food-octopus svg{filter:drop-shadow(0 3px 3px #0006)}#tray{display:grid;grid-template-columns:repeat(2,auto);gap:6px 14px;justify-items:center}
 .meat .bar{position:absolute;bottom:-14px;left:8px;right:8px;height:8px;background:#0007;border-radius:4px;overflow:hidden}
 .meat .bar i{display:block;height:100%;width:0;background:#7cfc00}
 .meat .badge{position:absolute;top:-28px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:16px;background:#fff;color:#333;border-radius:12px;padding:1px 8px;z-index:2}
@@ -49,7 +50,7 @@ h1{margin:4px 0;font-size:clamp(26px,5vw,40px)}
 @keyframes hop{50%{transform:translateY(-8px)}}
 @keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
 @keyframes flip{from{transform:rotateY(180deg)}to{transform:none}}
-@media (max-width:520px){#grill{grid-template-columns:repeat(2,110px)}.slot{width:110px;height:110px}.food-sausage{width:100px}}
+@media (max-width:520px){#grill{grid-template-columns:repeat(2,110px)}.slot{width:110px;height:110px}.food-sausage,.food-squid{width:100px}.food-squid{height:48px}}
 </style>
 </head>
 <body>
@@ -66,13 +67,16 @@ h1{margin:4px 0;font-size:clamp(26px,5vw,40px)}
 <div id="over"><div><span id="omsg"></span><br><button id="again"></button></div></div>
 <script>
 var FOODS={
- meat:{name:'고기',sec:5,stops:[[0,[240,138,148]],[1,[192,112,60]],[1.3,[138,79,38]],[1.8,[42,26,18]]]},
+ meat:{name:'돼지고기',sec:5,stops:[[0,[240,138,148]],[1,[192,112,60]],[1.3,[138,79,38]],[1.8,[42,26,18]]]},
  sausage:{name:'소시지',sec:4,stops:[[0,[236,120,130]],[1,[190,90,50]],[1.3,[130,60,30]],[1.8,[40,24,18]]]},
- shrimp:{name:'새우',sec:3,stops:[[0,[160,172,184]],[1,[255,140,100]],[1.3,[210,80,50]],[1.8,[50,28,22]]]}};
-var LEVELS=[{foods:['meat'],goal:6,label:'고기'},{foods:['meat','sausage'],goal:8,label:'고기 + 소시지'},{foods:['meat','sausage','shrimp'],goal:10,label:'고기 + 소시지 + 새우'}];
-var BURN=1.8,lv=0,score=0,slots=[null,null,null,null],busy=false,snd=true,AC=null,sg=null;
+ shrimp:{name:'새우',sec:3,stops:[[0,[160,172,184]],[1,[255,140,100]],[1.3,[210,80,50]],[1.8,[50,28,22]]]},
+ beef:{name:'소고기',sec:5,stops:[[0,[178,46,58]],[1,[150,85,60]],[1.3,[112,62,38]],[1.8,[42,26,18]]]},
+ squid:{name:'오징어',sec:4,stops:[[0,[238,226,226]],[1,[232,176,128]],[1.3,[190,120,70]],[1.8,[44,28,20]]]},
+ octopus:{name:'문어',sec:6,stops:[[0,[170,128,168]],[1,[226,100,70]],[1.3,[170,60,40]],[1.8,[44,24,20]]]}};
+var LEVELS=[{foods:['meat'],goal:6,slots:4,label:'돼지고기'},{foods:['meat','sausage'],goal:8,slots:4,label:'돼지고기 + 소시지',up:'🌭 소시지가 새로 나와요!'},{foods:['meat','sausage','shrimp'],goal:10,slots:4,label:'돼지고기 + 소시지 + 새우',up:'🦐 새우가 새로 나와요!<br>새우는 빨리 익으니 조심해요!'},{foods:['meat','sausage','shrimp','squid','octopus'],goal:12,slots:6,label:'다섯 가지 재료',up:'🦑 오징어와 🐙 문어가 새로 나와요!<br>불판이 6개로 늘어나요!'}];
+var BURN=1.8,lv=0,score=0,slots=[null,null,null,null,null,null],busy=false,snd=true,AC=null,sg=null;
 var grill=document.getElementById('grill'),tip=document.getElementById('tip'),plate=document.getElementById('plate'),tray=document.getElementById('tray'),els=[];
-for(var i=0;i<4;i++){var s=document.createElement('div');s.className='slot';grill.appendChild(s);els.push(s);}
+for(var i=0;i<6;i++){var s=document.createElement('div');s.className='slot';grill.appendChild(s);els.push(s);}
 
 /* ---------- 소리 ---------- */
 function initAudio(){
@@ -99,7 +103,15 @@ var SHRIMP="<path d='M14 30C18 10 48 4 72 12C92 18 100 34 96 50C90 44 84 38 72 3
 var SHRIMPSVG="<svg viewBox='0 0 110 64' width='100%' height='100%' "+SS+">"+GR+"<path d='M16 24C6 14 4 6 8 2M18 22C12 10 18 2 26 0' stroke='#000' stroke-opacity='.5' stroke-width='1.6' fill='none' stroke-linecap='round'/><path d='M44 44L41 53M54 40L53 50M64 36L65 46' stroke='#000' stroke-opacity='.45' stroke-width='1.8' stroke-linecap='round'/><path d='M92 46C100 48 108 54 108 62C100 60 92 56 88 50Z' fill='var(--c)' stroke='#000' stroke-opacity='.4' stroke-width='1.3'/><path d='M96 42C104 42 110 48 110 56C104 54 98 52 94 46Z' fill='var(--c)' stroke='#000' stroke-opacity='.4' stroke-width='1.3'/>"+SHRIMP+" fill='var(--c)' stroke='#000' stroke-opacity='.4' stroke-width='1.5'/>"+SHRIMP+" fill='url(#g@@)'/><path d='M14 30C16 20 26 12 36 10L40 40C30 52 18 48 14 30Z' fill='#000' opacity='.13'/><path d='M34 9C36 20 36 30 40 41M48 6C50 16 51 28 52 37M62 8C64 16 65 24 66 32M76 13C77 20 78 28 80 36M86 21C86 27 86 32 84 38' stroke='#000' stroke-opacity='.3' stroke-width='1.8' fill='none' stroke-linecap='round'/><path d='M28 14C44 6 62 8 74 14' stroke='#fff' stroke-opacity='.6' stroke-width='3' stroke-linecap='round' fill='none'/><circle cx='22' cy='26' r='3' fill='#111'/><circle cx='21' cy='25' r='1' fill='#fff'/></svg>";
 var MEATBODY="<path d='M10 34C8 16 28 8 50 10C72 6 92 16 91 38C93 58 78 74 54 74C34 78 12 66 10 34Z'";
 var MEATREAL="<svg viewBox='0 0 100 84' width='100%' height='100%' "+SS+">"+GR+MEATBODY+" fill='var(--c)' stroke='#000' stroke-opacity='.4' stroke-width='1.5'/>"+MEATBODY+" fill='url(#g@@)'/><path d='M22 44C34 40 44 46 58 42C68 40 76 44 84 42M18 58C30 54 40 60 52 56C62 54 72 58 80 56M30 66C40 64 50 68 62 66' stroke='#000' stroke-opacity='.16' stroke-width='1.3' fill='none' stroke-linecap='round'/><path d='M26 52C36 48 42 56 54 50M56 62C64 58 72 62 80 52M20 46C24 44 28 46 30 44' stroke='#fff' stroke-opacity='.45' stroke-width='2.2' fill='none' stroke-linecap='round'/><path d='M10 34C8 16 28 8 50 10C72 6 92 16 91 38C86 26 70 20 50 22C30 20 16 26 10 34Z' fill='#fff3e0' opacity='.85'/><path d='M12 33C18 26 32 21 50 22C70 20 85 26 90 36' stroke='#000' stroke-opacity='.18' stroke-width='1.2' fill='none'/><ellipse cx='32' cy='32' rx='10' ry='3.5' fill='#fff' opacity='.55' transform='rotate(-15 32 32)'/><ellipse cx='66' cy='47' rx='5' ry='2' fill='#fff' opacity='.4' transform='rotate(-10 66 47)'/></svg>";
-var SVGS={meat:MEATREAL,sausage:SAUSAGESVG,shrimp:SHRIMPSVG};
+var BEEFBODY="<path d='M8 38C6 18 26 8 52 10C78 8 98 20 96 42C98 62 80 76 54 76C30 80 10 66 8 38Z'";
+var BEEFSVG="<svg viewBox='0 0 104 84' width='100%' height='100%' "+SS+">"+GR+BEEFBODY+" fill='var(--c)' stroke='#000' stroke-opacity='.45' stroke-width='1.6'/>"+BEEFBODY+" fill='url(#g@@)'/><path d='M20 34C28 30 34 38 44 32C52 28 58 36 68 30M24 50C32 46 40 54 50 48C60 44 66 52 76 46M34 62C42 60 52 64 62 60M64 22C70 24 76 22 82 26' stroke='#ffd9d2' stroke-opacity='.6' stroke-width='1.8' fill='none' stroke-linecap='round'/><path d='M96 42C98 62 80 76 54 76C70 70 88 60 96 42Z' fill='#fff3e0' opacity='.9'/><ellipse cx='34' cy='24' rx='10' ry='3.5' fill='#fff' opacity='.5' transform='rotate(-15 34 24)'/></svg>";
+var SQUIDBODY="<path d='M6 28C14 14 40 10 70 14C84 16 92 22 92 28C92 34 84 40 70 42C40 46 14 42 6 28Z'";
+var SQUIDTENT="M88 22C100 18 110 24 120 18M88 25C102 24 112 30 122 28M88 28C100 30 112 36 120 40M88 31C100 36 108 44 116 50M88 24C98 12 108 10 116 6";
+var SQUIDSVG="<svg viewBox='0 0 124 56' width='100%' height='100%' "+SS+">"+GR+"<g fill='none' stroke-linecap='round'><path d='"+SQUIDTENT+"' stroke='#000' stroke-opacity='.3' stroke-width='7.5'/><path d='"+SQUIDTENT+"' stroke='var(--c)' stroke-width='5.5'/></g><path d='M2 28L26 6L38 14L22 28L38 42L26 50Z' fill='var(--c)' stroke='#000' stroke-opacity='.4' stroke-width='1.4' stroke-linejoin='round'/>"+SQUIDBODY+" fill='var(--c)' stroke='#000' stroke-opacity='.4' stroke-width='1.5'/>"+SQUIDBODY+" fill='url(#g@@)'/><g fill='#b0405a' opacity='.4'><circle cx='30' cy='20' r='1.8'/><circle cx='44' cy='25' r='2'/><circle cx='56' cy='19' r='1.6'/><circle cx='66' cy='30' r='1.8'/><circle cx='38' cy='34' r='1.6'/></g><path d='M20 20C40 14 64 14 80 20' stroke='#fff' stroke-opacity='.6' stroke-width='3' stroke-linecap='round' fill='none'/><circle cx='82' cy='24' r='3.2' fill='#111'/><circle cx='81' cy='23' r='1' fill='#fff'/></svg>";
+var OCTHEAD="<path d='M18 40C14 14 34 4 48 4C64 4 82 14 78 40C76 50 70 54 66 56L30 56C24 54 20 50 18 40Z'";
+var OCTT="M26 54C20 64 28 72 20 80C16 84 10 80 12 76M36 56C34 68 40 76 34 84M46 56C46 68 50 78 46 86M58 56C60 68 54 76 62 84M68 54C74 62 66 72 74 80C78 84 84 80 82 76";
+var OCTOSVG="<svg viewBox='0 0 96 88' width='100%' height='100%' "+SS+">"+GR+"<g fill='none' stroke-linecap='round'><path d='"+OCTT+"' stroke='#000' stroke-opacity='.3' stroke-width='12'/><path d='"+OCTT+"' stroke='var(--c)' stroke-width='9'/></g><g fill='#fff' opacity='.5'><circle cx='23' cy='66' r='1.7'/><circle cx='27' cy='73' r='1.7'/><circle cx='36' cy='66' r='1.7'/><circle cx='37' cy='76' r='1.7'/><circle cx='46' cy='68' r='1.7'/><circle cx='47' cy='78' r='1.7'/><circle cx='59' cy='68' r='1.7'/><circle cx='58' cy='77' r='1.7'/><circle cx='71' cy='66' r='1.7'/><circle cx='70' cy='74' r='1.7'/></g>"+OCTHEAD+" fill='var(--c)' stroke='#000' stroke-opacity='.4' stroke-width='1.5'/>"+OCTHEAD+" fill='url(#g@@)'/><circle cx='36' cy='42' r='4.5' fill='#fff'/><circle cx='60' cy='42' r='4.5' fill='#fff'/><circle cx='37' cy='43' r='2.2' fill='#111'/><circle cx='59' cy='43' r='2.2' fill='#111'/><g fill='#fff' opacity='.3'><circle cx='30' cy='24' r='2'/><circle cx='50' cy='16' r='2.2'/><circle cx='66' cy='26' r='1.8'/></g><ellipse cx='36' cy='16' rx='9' ry='3.5' fill='#fff' opacity='.55' transform='rotate(-20 36 16)'/></svg>";
+var SVGS={meat:MEATREAL,beef:BEEFSVG,sausage:SAUSAGESVG,shrimp:SHRIMPSVG,squid:SQUIDSVG,octopus:OCTOSVG};
 function mkSvg(t){return SVGS[t].replace(/@@/g,++SV);}
 function paint(el,t,p){var c=col(t,p);el.style.background=c;el.style.setProperty('--c',c);}
 function mk(t){var d=document.createElement('div');d.className='meat food-'+t;d.innerHTML=(SVGS[t]?mkSvg(t):'')+'<div class="badge"></div><div class="bar"><i></i></div>';return d;}
@@ -148,12 +160,12 @@ function buildTray(){tray.innerHTML='';LEVELS[lv].foods.forEach(function(t){
   document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);});});}
 
 /* ---------- 레벨 ---------- */
-function startLevel(){score=0;slots.forEach(function(m,i){if(m)m.el.remove();slots[i]=null;});buildTray();
+function startLevel(){els.forEach(function(s,i){s.style.display=i<LEVELS[lv].slots?'':'none';});score=0;slots.forEach(function(m,i){if(m)m.el.remove();slots[i]=null;});buildTray();
  document.getElementById('lv').textContent='⭐ 레벨 '+(lv+1)+' · '+LEVELS[lv].label;
  document.getElementById('count').textContent='0 / '+LEVELS[lv].goal;document.getElementById('over').style.display='none';busy=false;setTip();}
 function addScore(){score++;document.getElementById('count').textContent=score+' / '+LEVELS[lv].goal;anim(plate,'shake');beep(1040,.15,'sine',.2);setTip();
  if(score>=LEVELS[lv].goal){busy=true;var last=lv>=LEVELS.length-1;
-  document.getElementById('omsg').innerHTML=last?'🏆 모든 레벨 완료!<br>고기, 소시지, 새우 모두<br>멋지게 구웠어요!':'🎉 레벨 업!<br>'+(lv==0?'🌭 소시지가 새로 나와요!':'🦐 새우가 새로 나와요!<br>새우는 빨리 익으니 조심해요!');
+  document.getElementById('omsg').innerHTML=last?'🏆 모든 레벨 완료!<br>다섯 가지 재료를 모두<br>멋지게 구웠어요!':'🎉 레벨 업!<br>'+LEVELS[lv+1].up;
   document.getElementById('again').textContent=last?'처음부터 다시 하기':'다음 레벨로 ▶';
   setTimeout(function(){notes(last?[523,659,784,1047,784,1047,1319]:[523,659,784,1047]);document.getElementById('over').style.display='flex';},300);}}
 document.getElementById('again').onclick=function(){initAudio();lv=(lv>=LEVELS.length-1)?0:lv+1;startLevel();};
