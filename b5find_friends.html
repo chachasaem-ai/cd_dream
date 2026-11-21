@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>친구를 찾아라! 개학 보물찾기</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Jua (귀엽고 가독성 좋은 초등학생용 폰트) & Noto Sans KR -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Tone.js (외부 파일 없이 효과음 생성) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Canvas Confetti (축하 꽃가루 효과) -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- html2canvas (결과 카드 이미지 저장용) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FEF9C3; /* 따뜻한 연노랑 배경 */
+            background-image: radial-gradient(#FDE047 2px, transparent 2px);
+            background-size: 28px 28px;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .font-jua {
+            font-family: 'Jua', sans-serif;
+        }
+
+        /* 3D 입체감 버튼 스타일 */
+        .btn-3d {
+            transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 6px 0 var(--shadow-color, #D97706);
+        }
+        .btn-3d:active:not(:disabled) {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 var(--shadow-color, #D97706);
+        }
+        .btn-3d:disabled {
+            --shadow-color: #9CA3AF;
+            background-color: #D1D5DB;
+            color: #6B7280;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 보물지도 양피지 질감 및 스타일 */
+        .parchment-card {
+            background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+            border: 4px solid #F59E0B;
+            box-shadow: 0 12px 25px -5px rgba(180, 83, 9, 0.15), 0 8px 10px -6px rgba(180, 83, 9, 0.1);
+        }
+
+        /* 지도 조각 애니메이션 */
+        @keyframes popIn {
+            0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+            70% { transform: scale(1.15) rotate(3deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        .map-piece-unlocked {
+            animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        /* 둥둥 떠다니는 애니메이션 */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* 보물상자 흔들림 효과 */
+        @keyframes chestPulse {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            25% { transform: scale(1.06) rotate(-3deg); }
+            75% { transform: scale(1.06) rotate(3deg); }
+        }
+        .animate-chest {
+            animation: chestPulse 1.6s ease-in-out infinite;
+        }
+
+        /* 커스텀 스크롤바 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #FEF3C7;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #F59E0B;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-amber-950 flex flex-col justify-between selection:bg-amber-300">
+
+    <!-- 상단 진행 상태 바 (게임 진행 중에만 표시) -->
+    <header id="top-bar" class="hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b-4 border-amber-400 px-4 py-3 shadow-sm">
+        <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🧭</span>
+                    <span class="font-jua text-xl sm:text-2xl text-amber-800" id="header-player-name">탐험가</span>
+                </div>
+                <span id="mission-badge" class="bg-amber-100 text-amber-800 border-2 border-amber-400 font-jua px-3 py-1 rounded-full text-base sm:text-lg">
+                    미션 1 / 6
+                </span>
+            </div>
+
+            <!-- 보물지도 조각 미니 현황 -->
+            <div class="flex items-center gap-2 w-full sm:w-auto justify-center bg-amber-50 px-3 py-1.5 rounded-2xl border-2 border-amber-200">
+                <span id="mini-map-counter" class="font-jua text-base sm:text-lg text-amber-800 mr-1">보물지도 조각 0/6</span>
+                <div id="mini-map-pieces" class="flex gap-1.5">
+                    <!-- JS로 6개 조각 아이콘 생성 -->
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 컨텐츠 영역 -->
+    <main class="flex-grow flex items-center justify-center p-4 sm:p-6">
+        <div class="w-full max-w-3xl">
+
+            <!-- 1. 시작 화면 (Start Screen) -->
+            <section id="screen-start" class="parchment-card rounded-3xl p-6 sm:p-10 text-center">
+                <div class="inline-block bg-amber-400 text-amber-950 font-jua px-4 py-1.5 rounded-full text-base sm:text-lg mb-4 shadow-sm">
+                    ✨ 반가워요! 신나는 새 학기 첫 만남 ✨
+                </div>
+                
+                <div class="text-6xl sm:text-7xl mb-4 animate-float">🗺️🏴‍☠️💎</div>
+                
+                <h1 class="font-jua text-4xl sm:text-5xl md:text-6xl text-amber-900 mb-3 tracking-wide leading-tight">
+                    친구를 찾아라!<br>
+                    <span class="text-orange-600">개학 보물찾기</span>
+                </h1>
+                
+                <p class="text-base sm:text-xl text-amber-800 font-medium mb-8 max-w-xl mx-auto leading-relaxed">
+                    교실을 돌아다니며 친구들의 재미있는 방학 이야기를 듣고,<br class="hidden sm:inline">
+                    숨겨진 <strong class="text-orange-600">6개의 보물지도 조각</strong>을 모두 모아 보물을 찾아보세요!
+                </p>
+
+                <div class="max-w-md mx-auto bg-white p-5 sm:p-6 rounded-2xl border-3 border-amber-300 shadow-inner mb-6">
+                    <label for="player-name-input" class="block font-jua text-xl sm:text-2xl text-amber-900 mb-3">
+                        나의 이름을 알려주세요!
+                    </label>
+                    <input 
+                        type="text" 
+                        id="player-name-input" 
+                        placeholder="예: 김민준" 
+                        maxlength="12"
+                        class="w-full text-center font-jua text-2xl sm:text-3xl px-4 py-4 rounded-xl border-4 border-amber-300 focus:border-orange-500 focus:outline-none bg-amber-50/50 text-amber-950 placeholder-amber-300 transition-colors"
+                    >
+                    <p id="name-error" class="hidden text-red-500 font-bold text-sm mt-2">이름을 입력해야 출발할 수 있어요!</p>
+                </div>
+
+                <button 
+                    id="btn-start-game"
+                    class="btn-3d w-full max-w-md bg-orange-500 hover:bg-orange-400 text-white font-jua text-2xl sm:text-3xl py-5 px-8 rounded-2xl tracking-wider flex items-center justify-center gap-3 mx-auto"
+                    style="--shadow-color: #C2410C;"
+                >
+                    <span>보물찾기 시작!</span>
+                    <span class="text-3xl">🚀</span>
+                </button>
+            </section>
+
+            <!-- 2. 미션 진행 화면 (Mission Screen) -->
+            <section id="screen-mission" class="hidden parchment-card rounded-3xl p-5 sm:p-8">
+                <!-- 미션 헤더 -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-6 border-b-2 border-amber-300 border-dashed">
+                    <div class="flex items-center gap-3">
+                        <span id="mission-icon" class="text-4xl sm:text-5xl bg-white p-3 rounded-2xl border-2 border-amber-300 shadow-sm">🍕</span>
+                        <div>
+                            <span id="mission-step-label" class="font-jua text-orange-600 text-lg sm:text-xl">미션 1단계</span>
+                            <h2 id="mission-title" class="font-jua text-2xl sm:text-3xl text-amber-950">방학 최고 맛집 탐험대!</h2>
+                        </div>
+                    </div>
+                    <div class="bg-amber-200/70 px-4 py-2 rounded-xl text-amber-900 font-jua text-base sm:text-lg self-start sm:self-center">
+                        목표: <span id="mission-target-count" class="text-orange-600 text-xl">3명</span> 인터뷰하기
+                    </div>
+                </div>
+
+                <!-- 미션 설명 박스 -->
+                <div class="bg-white/90 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 mb-6 shadow-sm">
+                    <p id="mission-desc" class="text-lg sm:text-xl font-bold text-amber-900 leading-relaxed">
+                        친구 3명에게 방학 동안 먹었던 음식 중 가장 맛있었던 음식을 물어보고 적어보세요!
+                    </p>
+                    <p id="mission-tip" class="hidden text-sm sm:text-base text-orange-700 font-medium mt-2 bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200">
+                        💡 힌트: 앞에서 아직 이야기하지 않은 새로운 친구를 찾아가 볼까요?
+                    </p>
+                </div>
+
+                <!-- 입력 폼 컨테이너 (동적 생성) -->
+                <div id="mission-inputs-container" class="space-y-4 mb-6">
+                    <!-- JS로 친구별 입력 카드 생성 -->
+                </div>
+
+                <!-- 중복 친구 경고 메시지 박스 -->
+                <div id="duplicate-warning" class="hidden bg-red-50 border-3 border-red-400 text-red-700 rounded-2xl p-4 mb-6 flex items-center gap-3 shadow-sm">
+                    <span class="text-2xl sm:text-3xl">🚫</span>
+                    <p class="font-jua text-lg sm:text-xl leading-snug">
+                        이미 만난 친구예요. 아직 이야기하지 않은 새로운 친구를 찾아보세요!
+                    </p>
+                </div>
+
+                <!-- 하단 버튼 영역 -->
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+                    <div id="validation-hint" class="text-amber-700 font-bold text-base sm:text-lg flex items-center gap-2">
+                        <span>✍️</span>
+                        <span>빈칸을 모두 채우면 버튼이 열려요!</span>
+                    </div>
+
+                    <button 
+                        id="btn-complete-mission" 
+                        disabled
+                        class="btn-3d w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-white font-jua text-2xl sm:text-3xl py-4 px-10 rounded-2xl flex items-center justify-center gap-2"
+                        style="--shadow-color: #047857;"
+                    >
+                        <span>미션 완료!</span>
+                        <span>✨</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- 3. 보물지도 조각 획득 모달/화면 (Piece Reward Overlay) -->
+            <section id="screen-reward" class="hidden parchment-card rounded-3xl p-6 sm:p-10 text-center">
+                <div class="inline-block bg-emerald-100 text-emerald-800 border-2 border-emerald-400 font-jua px-4 py-1 rounded-full text-lg mb-3">
+                    🎉 미션 클리어! 🎉
+                </div>
+
+                <h2 id="reward-title" class="font-jua text-3xl sm:text-4xl text-amber-900 mb-2">
+                    보물지도 조각을 획득했습니다!
+                </h2>
+                <p id="reward-subtitle" class="text-amber-700 font-bold text-lg sm:text-xl mb-6">
+                    현재 모은 보물지도 조각: 1 / 6
+                </p>
+
+                <!-- 6조각 보물지도 퍼즐 보드 -->
+                <div class="max-w-md mx-auto bg-amber-800 p-3 rounded-2xl shadow-lg mb-6 border-4 border-amber-900">
+                    <div id="treasure-map-grid" class="grid grid-cols-3 grid-rows-2 gap-1.5 bg-amber-950 p-1.5 rounded-xl aspect-[3/2]">
+                        <!-- JS로 6개의 지도 조각 렌더링 -->
+                    </div>
+                </div>
+
+                <!-- 다음 미션 버튼 (1~5단계 완료 시) -->
+                <button 
+                    id="btn-next-mission"
+                    class="btn-3d w-full max-w-md bg-orange-500 hover:bg-orange-400 text-white font-jua text-2xl sm:text-3xl py-5 px-8 rounded-2xl mx-auto flex items-center justify-center gap-3"
+                    style="--shadow-color: #C2410C;"
+                >
+                    <span id="btn-next-text">다음 미션으로 출발!</span>
+                    <span>➡️</span>
+                </button>
+
+                <!-- 모든 조각(6/6) 완성 시 나타나는 보물상자 영역 -->
+                <div id="treasure-chest-box" class="hidden mt-4 bg-gradient-to-b from-amber-100 to-orange-100 border-4 border-orange-400 rounded-3xl p-6 max-w-md mx-auto shadow-md">
+                    <p class="font-jua text-xl sm:text-2xl text-orange-700 mb-3">
+                        ✨ 보물지도가 완성되어 비밀 보물상자가 나타났어요! ✨
+                    </p>
+                    <button 
+                        id="btn-open-chest"
+                        type="button"
+                        class="btn-3d w-full bg-amber-400 hover:bg-amber-300 text-amber-950 font-jua text-2xl sm:text-3xl py-5 px-6 rounded-2xl flex flex-col items-center justify-center gap-2 mx-auto border-2 border-amber-600"
+                        style="--shadow-color: #B45309;"
+                    >
+                        <span class="text-6xl animate-chest">🧰</span>
+                        <span>보물상자 열기!</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- 4. 새 학기 목표 작성 화면 (Goal Setting Screen) -->
+            <section id="screen-goal" class="hidden parchment-card rounded-3xl p-6 sm:p-10">
+                <div class="text-center mb-6">
+                    <div class="text-5xl sm:text-6xl mb-3">🏆🗺️✨</div>
+                    <span class="bg-orange-100 text-orange-700 border-2 border-orange-300 font-jua px-4 py-1 rounded-full text-base sm:text-lg">
+                        보물지도 완성! 마지막 관문
+                    </span>
+                    <h2 class="font-jua text-3xl sm:text-4xl text-amber-950 mt-3 mb-2">
+                        보물상자를 열기 위한 열쇠!
+                    </h2>
+                    <p class="text-base sm:text-lg text-amber-800 font-medium">
+                        친구들의 멋진 방학 이야기를 모두 모았군요!<br>
+                        이제 <strong class="text-orange-600">나의 새 학기 목표</strong>를 정해 보물상자를 열어보세요.
+                    </p>
+                </div>
+
+                <!-- 1단계: 카테고리 선택 -->
+                <div class="mb-6">
+                    <label class="block font-jua text-xl sm:text-2xl text-amber-900 mb-3">
+                        1. 어떤 분야의 목표를 세울까요? (하나를 눌러주세요)
+                    </label>
+                    <div id="goal-categories" class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3">
+                        <button type="button" data-cat="공부" class="goal-cat-btn bg-white hover:bg-amber-50 border-3 border-amber-300 rounded-2xl p-3 sm:p-4 flex flex-col items-center gap-1.5 transition-all">
+                            <span class="text-3xl">📚</span>
+                            <span class="font-jua text-lg sm:text-xl text-amber-900">공부</span>
+                        </button>
+                        <button type="button" data-cat="친구 관계" class="goal-cat-btn bg-white hover:bg-amber-50 border-3 border-amber-300 rounded-2xl p-3 sm:p-4 flex flex-col items-center gap-1.5 transition-all">
+                            <span class="text-3xl">🤝</span>
+                            <span class="font-jua text-lg sm:text-xl text-amber-900">친구 관계</span>
+                        </button>
+                        <button type="button" data-cat="생활 습관" class="goal-cat-btn bg-white hover:bg-amber-50 border-3 border-amber-300 rounded-2xl p-3 sm:p-4 flex flex-col items-center gap-1.5 transition-all">
+                            <span class="text-3xl">⏰</span>
+                            <span class="font-jua text-lg sm:text-xl text-amber-900">생활 습관</span>
+                        </button>
+                        <button type="button" data-cat="건강" class="goal-cat-btn bg-white hover:bg-amber-50 border-3 border-amber-300 rounded-2xl p-3 sm:p-4 flex flex-col items-center gap-1.5 transition-all">
+                            <span class="text-3xl">💪</span>
+                            <span class="font-jua text-lg sm:text-xl text-amber-900">건강</span>
+                        </button>
+                        <button type="button" data-cat="새로운 도전" class="goal-cat-btn col-span-2 sm:col-span-1 bg-white hover:bg-amber-50 border-3 border-amber-300 rounded-2xl p-3 sm:p-4 flex flex-col items-center gap-1.5 transition-all">
+                            <span class="text-3xl">🚀</span>
+                            <span class="font-jua text-lg sm:text-xl text-amber-900">새로운 도전</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2단계: 목표 문장 직접 작성 -->
+                <div class="bg-white p-5 sm:p-6 rounded-2xl border-3 border-amber-300 shadow-inner mb-8">
+                    <label for="goal-text-input" class="block font-jua text-xl sm:text-2xl text-amber-900 mb-4">
+                        2. 나의 다짐을 직접 적어주세요!
+                    </label>
+                    <div class="flex flex-col sm:flex-row items-center justify-center gap-3 text-xl sm:text-2xl font-jua text-amber-950 bg-amber-50 p-4 rounded-xl border-2 border-amber-200">
+                        <span class="whitespace-nowrap">이번 학기에 나는</span>
+                        <input 
+                            type="text" 
+                            id="goal-text-input" 
+                            placeholder="예: 매일 책을 20분씩 읽" 
+                            maxlength="30"
+                            class="w-full sm:flex-1 text-center font-jua text-xl sm:text-2xl px-4 py-3 rounded-xl border-3 border-orange-400 focus:border-orange-600 focus:outline-none bg-white text-orange-700 placeholder-amber-300"
+                        >
+                        <span class="whitespace-nowrap">하겠습니다!</span>
+                    </div>
+                    <p class="text-sm text-amber-600 mt-2 text-center">
+                        * 자연스러운 문장이 되도록 '하겠습니다!' 앞부분을 적어주세요.
+                    </p>
+                </div>
+
+                <button 
+                    id="btn-finish-treasure" 
+                    disabled
+                    class="btn-3d w-full bg-orange-500 hover:bg-orange-400 text-white font-jua text-2xl sm:text-3xl py-5 px-8 rounded-2xl flex items-center justify-center gap-3"
+                    style="--shadow-color: #C2410C;"
+                >
+                    <span>보물상자 열기!</span>
+                    <span class="text-3xl">🎁</span>
+                </button>
+            </section>
+
+            <!-- 5. 최종 성공 화면 (Final Celebration Screen) -->
+            <section id="screen-final" class="hidden space-y-5">
+                <!-- 캡처 및 저장 대상이 되는 한 장의 결과 카드 -->
+                <div id="capture-result-card" class="parchment-card rounded-3xl p-6 sm:p-8 text-center relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-amber-400 via-orange-500 to-amber-400"></div>
+
+                    <div class="text-5xl sm:text-6xl mb-2">👑💎🎉</div>
+                    <h1 class="font-jua text-3xl sm:text-5xl text-orange-600 mb-1">
+                        개학 보물찾기 성공!
+                    </h1>
+                    <p id="final-congrats-sub" class="font-jua text-xl sm:text-2xl text-amber-900 mb-5">
+                        김민준 탐험가의 보물찾기 인증서
+                    </p>
+
+                    <!-- 핵심 활동 완료 요약 배지 4종 -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mb-5">
+                        <div class="bg-white/95 border-2 border-amber-300 rounded-2xl p-3">
+                            <div class="text-xs sm:text-sm font-bold text-amber-700 mb-0.5">탐험가 이름</div>
+                            <div id="stat-player-name" class="font-jua text-lg sm:text-xl text-amber-950 truncate">김민준</div>
+                        </div>
+                        <div class="bg-white/95 border-2 border-amber-300 rounded-2xl p-3">
+                            <div class="text-xs sm:text-sm font-bold text-amber-700 mb-0.5">완료한 미션</div>
+                            <div id="stat-mission-count" class="font-jua text-lg sm:text-xl text-emerald-600">6 / 6개</div>
+                        </div>
+                        <div class="bg-white/95 border-2 border-amber-300 rounded-2xl p-3">
+                            <div class="text-xs sm:text-sm font-bold text-amber-700 mb-0.5">만난 친구</div>
+                            <div id="stat-friend-count" class="font-jua text-lg sm:text-xl text-orange-600">12명</div>
+                        </div>
+                        <div class="bg-white/95 border-2 border-amber-300 rounded-2xl p-3">
+                            <div class="text-xs sm:text-sm font-bold text-amber-700 mb-0.5">보물지도 조각</div>
+                            <div id="stat-map-pieces" class="font-jua text-lg sm:text-xl text-amber-600">6 / 6조각</div>
+                        </div>
+                    </div>
+
+                    <!-- 새 학기 목표 인증 박스 -->
+                    <div class="bg-white border-4 border-amber-400 rounded-2xl p-5 sm:p-7 shadow-sm">
+                        <div class="inline-flex items-center gap-2 bg-amber-100 text-amber-900 font-jua px-4 py-1 rounded-full text-base sm:text-lg mb-3">
+                            <span>🌟 나의 새 학기 목표 영역</span>
+                            <span id="final-goal-badge" class="bg-orange-500 text-white px-3 py-0.5 rounded-full text-sm sm:text-base">공부</span>
+                        </div>
+
+                        <p class="font-jua text-2xl sm:text-3xl md:text-4xl text-amber-950 leading-snug break-keep">
+                            “이번 학기에 나는<br class="sm:hidden">
+                            <span id="final-goal-content" class="text-orange-600 underline decoration-amber-300 decoration-4 underline-offset-8">매일 책을 읽</span><br class="sm:hidden">
+                            하겠습니다!”
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 저장 및 캡처 안내 메시지 박스 (필요 시 표시) -->
+                <div id="save-guide-box" class="hidden bg-sky-50 border-3 border-sky-300 rounded-2xl p-4 text-center text-sky-950 shadow-sm">
+                    <p id="save-guide-text" class="font-jua text-lg sm:text-xl mb-1"></p>
+                    <p class="text-sm sm:text-base text-sky-800 font-medium">
+                        💡 크롬북은 <kbd class="bg-white px-2 py-0.5 rounded border border-sky-300 font-bold">Ctrl + Show Windows</kbd>, 아이패드/태블릿은 <kbd class="bg-white px-2 py-0.5 rounded border border-sky-300 font-bold">전원 + 음량 버튼</kbd>으로 화면을 캡처해 저장할 수 있어요!
+                    </p>
+                </div>
+
+                <!-- 하단 액션 버튼 영역 -->
+                <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                    <button 
+                        id="btn-save-image"
+                        class="btn-3d bg-emerald-500 hover:bg-emerald-400 text-white font-jua text-xl sm:text-2xl py-4 px-7 rounded-2xl flex items-center justify-center gap-2"
+                        style="--shadow-color: #047857;"
+                    >
+                        <span>결과 저장하기</span>
+                        <span>📸</span>
+                    </button>
+                    <button 
+                        id="btn-celebrate-more"
+                        class="btn-3d bg-amber-400 hover:bg-amber-300 text-amber-950 font-jua text-xl sm:text-2xl py-4 px-6 rounded-2xl flex items-center justify-center gap-2"
+                        style="--shadow-color: #B45309;"
+                    >
+                        <span>축하 꽃가루!</span>
+                        <span>🎊</span>
+                    </button>
+                    <button 
+                        id="btn-restart"
+                        class="btn-3d bg-white hover:bg-gray-50 text-amber-900 border-2 border-amber-300 font-jua text-xl sm:text-2xl py-4 px-6 rounded-2xl flex items-center justify-center gap-2"
+                        style="--shadow-color: #D97706;"
+                    >
+                        <span>다시하기</span>
+                        <span>🔄</span>
+                    </button>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- 하단 푸터 -->
+    <footer class="text-center py-3 text-amber-800/70 text-xs sm:text-sm font-medium">
+        친구를 찾아라! 개학 보물찾기 • 태블릿 & 크롬북 교실 활동 웹앱
+    </footer>
+
+    <script>
+        // ==========================================
+        // 1. 효과음 시스템 (Tone.js - 외부 파일 불필요)
+        // ==========================================
+        const SoundFX = {
+            initialized: false,
+            synth: null,
+            init() {
+                if (this.initialized) return;
+                try {
+                    this.synth = new Tone.PolySynth(Tone.Synth, {
+                        oscillator: { type: "triangle" },
+                        envelope: { attack: 0.02, decay: 0.1, sustain: 0.2, release: 0.4 }
+                    }).toDestination();
+                    this.synth.volume.value = -6;
+                    this.initialized = true;
+                } catch (e) {
+                    console.warn("Audio init skipped:", e);
+                }
+            },
+            playClick() {
+                this.init();
+                if (!this.synth) return;
+                Tone.start();
+                this.synth.triggerAttackRelease("C5", "16n");
+            },
+            playPieceUnlocked() {
+                this.init();
+                if (!this.synth) return;
+                Tone.start();
+                const now = Tone.now();
+                this.synth.triggerAttackRelease("C5", "16n", now);
+                this.synth.triggerAttackRelease("E5", "16n", now + 0.1);
+                this.synth.triggerAttackRelease("G5", "16n", now + 0.2);
+                this.synth.triggerAttackRelease("C6", "8n", now + 0.3);
+            },
+            playVictory() {
+                this.init();
+                if (!this.synth) return;
+                Tone.start();
+                const now = Tone.now();
+                const notes = ["C5", "E5", "G5", "C6", "G5", "C6"];
+                const times = [0, 0.12, 0.24, 0.36, 0.52, 0.66];
+                notes.forEach((note, idx) => {
+                    this.synth.triggerAttackRelease(note, idx === 5 ? "4n" : "16n", now + times[idx]);
+                });
+            }
+        };
+
+        // ==========================================
+        // 2. 미션 데이터 정의 (총 6개 미션)
+        // ==========================================
+        const MISSIONS = [
+            {
+                id: 1,
+                icon: "🍕",
+                title: "방학 최고 맛집 탐험대!",
+                description: "친구 3명에게 방학 동안 먹었던 음식 중 가장 맛있었던 음식을 물어보고 친구 이름과 음식 이름을 적어주세요.",
+                tip: "",
+                count: 3,
+                fields: [
+                    { key: "friendName", label: "친구 이름", placeholder: "예: 이서연", width: "sm:w-1/3" },
+                    { key: "answer", label: "가장 맛있었던 음식", placeholder: "예: 할머니가 해주신 불고기", width: "sm:w-2/3" }
+                ]
+            },
+            {
+                id: 2,
+                icon: "🎢",
+                title: "꿀잼 방학 하이라이트!",
+                description: "친구 2명에게 방학 동안 가장 재미있었던 일을 물어보고 친구 이름과 내용을 적어주세요.",
+                tip: "",
+                count: 2,
+                fields: [
+                    { key: "friendName", label: "친구 이름", placeholder: "예: 박지훈", width: "sm:w-1/3" },
+                    { key: "answer", label: "가장 재미있었던 일", placeholder: "예: 워터파크에서 파도풀 탄 것", width: "sm:w-2/3" }
+                ]
+            },
+            {
+                id: 3,
+                icon: "📸",
+                title: "추억의 장소 스탬프!",
+                description: "친구 2명에게 방학 동안 기억에 남는 장소와 그곳에서 기억에 남았던 일을 물어보고 적어주세요.",
+                tip: "",
+                count: 2,
+                fields: [
+                    { key: "friendName", label: "친구 이름", placeholder: "예: 최유나", width: "sm:w-1/4" },
+                    { key: "place", label: "기억에 남는 장소", placeholder: "예: 제주도 바다", width: "sm:w-1/3" },
+                    { key: "answer", label: "그곳에서 기억에 남았던 일", placeholder: "예: 예쁜 조개껍데기를 주웠어요", width: "sm:w-5/12" }
+                ]
+            },
+            {
+                id: 4,
+                icon: "🌟",
+                title: "용기 있는 첫 도전!",
+                description: "방학 동안 처음 해 본 일이나 새롭게 도전한 일이 있는 친구 1명을 찾아 이름과 도전한 일을 적어주세요.",
+                tip: "",
+                count: 1,
+                fields: [
+                    { key: "friendName", label: "친구 이름", placeholder: "예: 정도윤", width: "sm:w-1/3" },
+                    { key: "answer", label: "처음 해 본 일 / 새로운 도전", placeholder: "예: 두 발 자전거 타기 성공!", width: "sm:w-2/3" }
+                ]
+            },
+            {
+                id: 5,
+                icon: "🎬",
+                title: "방학 명작 추천 큐레이터!",
+                description: "친구 3명에게 방학 동안 재미있게 본 책, 영화, 애니메이션, 영상 중 하나를 추천받아 친구 이름과 추천 작품을 적어주세요.",
+                tip: "",
+                count: 3,
+                fields: [
+                    { key: "friendName", label: "친구 이름", placeholder: "예: 강하은", width: "sm:w-1/3" },
+                    { key: "answer", label: "추천 작품 (책/영화/애니/영상)", placeholder: "예: 인사이드 아웃 2", width: "sm:w-2/3" }
+                ]
+            },
+            {
+                id: 6,
+                icon: "💌",
+                title: "새로운 친구와의 특별한 이야기!",
+                description: "가능하면 앞에서 이야기하지 않았던 친구 1명을 찾아 방학 중 가장 기억에 남는 이야기를 물어보고 적어주세요.",
+                tip: "💡 힌트: 미션 1~5에서 아직 만나지 못한 반 친구에게 먼저 다가가 인사를 건네보세요!",
+                count: 1,
+                fields: [
+                    { key: "friendName", label: "새로운 친구 이름", placeholder: "예: 윤시우", width: "sm:w-1/3" },
+                    { key: "answer", label: "가장 기억에 남는 이야기", placeholder: "예: 가족들과 밤하늘 별똥별을 봤어요", width: "sm:w-2/3" }
+                ]
+            }
+        ];
+
+        // 보물지도 6개 조각 시각 데이터
+        const MAP_PIECES_ART = [
+            { emoji: "🌴", label: "야자수 해변", bg: "from-emerald-200 to-teal-300" },
+            { emoji: "⛵", label: "모험의 바다", bg: "from-sky-200 to-blue-300" },
+            { emoji: "⛰️", label: "높은 산봉우리", bg: "from-amber-200 to-orange-300" },
+            { emoji: "🌉", label: "무지개 다리", bg: "from-purple-200 to-pink-300" },
+            { emoji: "🧭", label: "황금 나침반", bg: "from-yellow-200 to-amber-300" },
+            { emoji: "💎", label: "비밀 보물섬!", bg: "from-rose-200 to-red-300" }
+        ];
+
+        // ==========================================
+        // 3. 애플리케이션 상태 관리
+        // ==========================================
+        const state = {
+            playerName: "",
+            currentMissionIndex: 0, // 0 ~ 5
+            unlockedPieces: 0,      // 0 ~ 6
+            missionResponses: {},   // { 1: [{friendName, answer}, ...], ... }
+            selectedCategory: "",
+            goalText: ""
+        };
+
+        // ==========================================
+        // 4. DOM 요소 참조
+        // ==========================================
+        const screens = {
+            start: document.getElementById("screen-start"),
+            mission: document.getElementById("screen-mission"),
+            reward: document.getElementById("screen-reward"),
+            goal: document.getElementById("screen-goal"),
+            final: document.getElementById("screen-final")
+        };
+
+        const topBar = document.getElementById("top-bar");
+        const headerPlayerName = document.getElementById("header-player-name");
+        const missionBadge = document.getElementById("mission-badge");
+        const miniMapCounter = document.getElementById("mini-map-counter");
+        const miniMapPieces = document.getElementById("mini-map-pieces");
+
+        // ==========================================
+        // 5. 화면 전환 및 UI 업데이트 함수
+        // ==========================================
+        function showScreen(screenKey) {
+            Object.values(screens).forEach(el => el.classList.add("hidden"));
+            screens[screenKey].classList.remove("hidden");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        function updateHeader() {
+            headerPlayerName.textContent = `${state.playerName} 탐험가`;
+            
+            if (state.currentMissionIndex < MISSIONS.length) {
+                missionBadge.textContent = `미션 ${state.currentMissionIndex + 1} / ${MISSIONS.length}`;
+            } else {
+                missionBadge.textContent = `보물지도 완성!`;
+            }
+
+            miniMapCounter.textContent = `보물지도 조각 ${state.unlockedPieces}/6`;
+
+            // 상단 미니 지도 조각 아이콘 6개 렌더링
+            miniMapPieces.innerHTML = "";
+            for (let i = 0; i < 6; i++) {
+                const isUnlocked = i < state.unlockedPieces;
+                const pieceEl = document.createElement("div");
+                pieceEl.className = `w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-sm sm:text-base font-bold transition-all ${
+                    isUnlocked 
+                        ? "bg-amber-400 text-amber-950 border-2 border-amber-600 shadow-sm scale-105" 
+                        : "bg-amber-100 text-amber-400 border border-dashed border-amber-300"
+                }`;
+                pieceEl.textContent = isUnlocked ? MAP_PIECES_ART[i].emoji : (i + 1);
+                miniMapPieces.appendChild(pieceEl);
+            }
+        }
+
+        // 이전 미션들에서 이미 입력된 친구 이름 목록(공백 제거) 반환
+        function getPreviouslyMetFriends(currentMissionId) {
+            const metSet = new Set();
+            Object.entries(state.missionResponses).forEach(([mId, entries]) => {
+                if (Number(mId) < currentMissionId && Array.isArray(entries)) {
+                    entries.forEach(entry => {
+                        const cleanName = (entry.friendName || "").trim();
+                        if (cleanName) {
+                            metSet.add(cleanName);
+                        }
+                    });
+                }
+            });
+            return metSet;
+        }
+
+        // 현재 미션 화면 렌더링
+        function renderMission() {
+            const mission = MISSIONS[state.currentMissionIndex];
+            updateHeader();
+
+            document.getElementById("mission-icon").textContent = mission.icon;
+            document.getElementById("mission-step-label").textContent = `미션 ${mission.id}단계`;
+            document.getElementById("mission-title").textContent = mission.title;
+            document.getElementById("mission-target-count").textContent = `${mission.count}명`;
+            document.getElementById("mission-desc").textContent = mission.description;
+
+            const tipEl = document.getElementById("mission-tip");
+            if (mission.tip) {
+                tipEl.textContent = mission.tip;
+                tipEl.classList.remove("hidden");
+            } else {
+                tipEl.classList.add("hidden");
+            }
+
+            // 입력 폼 생성
+            const container = document.getElementById("mission-inputs-container");
+            container.innerHTML = "";
+
+            // 이미 입력된 값이 있으면 불러오기
+            const savedEntries = state.missionResponses[mission.id] || Array.from({ length: mission.count }, () => ({}));
+
+            for (let i = 0; i < mission.count; i++) {
+                const card = document.createElement("div");
+                card.className = "bg-white p-4 sm:p-5 rounded-2xl border-3 border-amber-300 shadow-sm transition-all focus-within:border-orange-400";
+
+                const badgeTitle = document.createElement("div");
+                badgeTitle.className = "font-jua text-lg sm:text-xl text-amber-800 mb-3 flex items-center gap-2";
+                badgeTitle.innerHTML = `<span class="bg-amber-400 text-amber-950 w-7 h-7 rounded-full inline-flex items-center justify-center text-base">${i + 1}</span> <span>${i + 1}번째 친구 인터뷰</span>`;
+                card.appendChild(badgeTitle);
+
+                const row = document.createElement("div");
+                row.className = "flex flex-col sm:flex-row gap-3";
+
+                mission.fields.forEach(field => {
+                    const wrapper = document.createElement("div");
+                    wrapper.className = `w-full ${field.width || "flex-1"}`;
+
+                    const label = document.createElement("label");
+                    label.className = "block text-sm font-bold text-amber-700 mb-1";
+                    label.textContent = field.label;
+
+                    const input = document.createElement("input");
+                    input.type = "text";
+                    input.dataset.index = i;
+                    input.dataset.key = field.key;
+                    input.placeholder = field.placeholder;
+                    input.value = savedEntries[i]?.[field.key] || "";
+                    input.className = "mission-input w-full text-lg sm:text-xl font-medium px-4 py-3.5 rounded-xl border-2 border-amber-300 focus:border-orange-500 focus:outline-none bg-amber-50/40 text-amber-950 placeholder-amber-300";
+
+                    input.addEventListener("input", handleMissionInput);
+
+                    wrapper.appendChild(label);
+                    wrapper.appendChild(input);
+                    row.appendChild(wrapper);
+                });
+
+                card.appendChild(row);
+                container.appendChild(card);
+            }
+
+            validateMissionInputs();
+            showScreen("mission");
+        }
+
+        // 미션 입력값 저장 및 유효성 검사 (빈칸 + 중복 친구 이름 검사)
+        function handleMissionInput(e) {
+            const mission = MISSIONS[state.currentMissionIndex];
+            const idx = parseInt(e.target.dataset.index, 10);
+            const key = e.target.dataset.key;
+
+            if (!state.missionResponses[mission.id]) {
+                state.missionResponses[mission.id] = Array.from({ length: mission.count }, () => ({}));
+            }
+            state.missionResponses[mission.id][idx][key] = e.target.value;
+
+            validateMissionInputs();
+        }
+
+        function validateMissionInputs() {
+            const mission = MISSIONS[state.currentMissionIndex];
+            const inputs = document.querySelectorAll(".mission-input");
+            let allFilled = true;
+
+            inputs.forEach(inp => {
+                if (inp.value.trim().length === 0) {
+                    allFilled = false;
+                }
+            });
+
+            // 친구 이름 중복 검사 (이전 미션 + 현재 미션 내 중복)
+            const previousFriends = getPreviouslyMetFriends(mission.id);
+            const nameInputs = Array.from(document.querySelectorAll('.mission-input[data-key="friendName"]'));
+            const currentMissionNames = [];
+            let hasDuplicateFriend = false;
+
+            nameInputs.forEach(inp => {
+                const cleanName = inp.value.trim();
+                let isDup = false;
+
+                if (cleanName.length > 0) {
+                    if (previousFriends.has(cleanName) || currentMissionNames.includes(cleanName)) {
+                        isDup = true;
+                        hasDuplicateFriend = true;
+                    }
+                    currentMissionNames.push(cleanName);
+                }
+
+                // 중복된 입력창 테두리 강조
+                if (isDup) {
+                    inp.classList.remove("border-amber-300", "focus:border-orange-500", "bg-amber-50/40");
+                    inp.classList.add("border-red-500", "focus:border-red-600", "bg-red-50");
+                } else {
+                    inp.classList.remove("border-red-500", "focus:border-red-600", "bg-red-50");
+                    inp.classList.add("border-amber-300", "focus:border-orange-500", "bg-amber-50/40");
+                }
+            });
+
+            const dupWarningEl = document.getElementById("duplicate-warning");
+            if (hasDuplicateFriend) {
+                dupWarningEl.classList.remove("hidden");
+            } else {
+                dupWarningEl.classList.add("hidden");
+            }
+
+            const btnComplete = document.getElementById("btn-complete-mission");
+            const hintEl = document.getElementById("validation-hint");
+
+            btnComplete.disabled = !allFilled || hasDuplicateFriend;
+
+            if (hasDuplicateFriend) {
+                hintEl.innerHTML = `<span class="text-red-600">🚫 중복된 친구 이름을 새로운 친구로 바꿔주세요!</span>`;
+            } else if (allFilled) {
+                hintEl.innerHTML = `<span class="text-emerald-600">🎉 모두 적었어요! '미션 완료!' 버튼을 눌러주세요!</span>`;
+            } else {
+                hintEl.innerHTML = `<span>✍️</span> <span>빈칸을 모두 채우면 버튼이 열려요!</span>`;
+            }
+        }
+
+        // 보물지도 조각 획득 화면 렌더링
+        function renderRewardScreen() {
+            state.unlockedPieces = state.currentMissionIndex + 1;
+            updateHeader();
+            SoundFX.playPieceUnlocked();
+
+            document.getElementById("reward-title").textContent = `보물지도 조각을 획득했습니다!`;
+            document.getElementById("reward-subtitle").textContent = `보물지도 조각 ${state.unlockedPieces} / ${MISSIONS.length} 완성!`;
+
+            const grid = document.getElementById("treasure-map-grid");
+            grid.innerHTML = "";
+
+            for (let i = 0; i < 6; i++) {
+                const isUnlocked = i < state.unlockedPieces;
+                const isJustUnlocked = i === state.unlockedPieces - 1;
+                const art = MAP_PIECES_ART[i];
+
+                const cell = document.createElement("div");
+                if (isUnlocked) {
+                    cell.className = `bg-gradient-to-br ${art.bg} rounded-xl flex flex-col items-center justify-center p-2 border-2 border-amber-400 shadow-inner ${isJustUnlocked ? "map-piece-unlocked ring-4 ring-yellow-300" : ""}`;
+                    cell.innerHTML = `
+                        <span class="text-3xl sm:text-4xl mb-1">${art.emoji}</span>
+                        <span class="font-jua text-xs sm:text-sm text-amber-950 text-center leading-tight">${art.label}</span>
+                    `;
+                } else {
+                    cell.className = "bg-amber-900/60 rounded-xl flex flex-col items-center justify-center p-2 border-2 border-dashed border-amber-700 text-amber-500/60";
+                    cell.innerHTML = `
+                        <span class="font-jua text-2xl sm:text-3xl">?</span>
+                        <span class="font-jua text-xs mt-1">${i + 1}번 조각</span>
+                    `;
+                }
+                grid.appendChild(cell);
+            }
+
+            const btnNextMission = document.getElementById("btn-next-mission");
+            const btnNextText = document.getElementById("btn-next-text");
+            const chestBox = document.getElementById("treasure-chest-box");
+
+            if (state.unlockedPieces < MISSIONS.length) {
+                btnNextMission.classList.remove("hidden");
+                chestBox.classList.add("hidden");
+                btnNextText.textContent = `미션 ${state.unlockedPieces + 1}단계로 출발!`;
+            } else {
+                // 6개 조각을 모두 모으면 보물상자 등장
+                btnNextMission.classList.add("hidden");
+                chestBox.classList.remove("hidden");
+            }
+
+            // 작은 폭죽 효과
+            if (typeof confetti === "function") {
+                confetti({ particleCount: 55, spread: 65, origin: { y: 0.7 } });
+            }
+
+            showScreen("reward");
+        }
+
+        // 목표 설정 유효성 검사
+        function validateGoalScreen() {
+            const btnFinish = document.getElementById("btn-finish-treasure");
+            const isValid = state.selectedCategory !== "" && state.goalText.trim().length > 0;
+            btnFinish.disabled = !isValid;
+        }
+
+        // 만난 전체 고유 친구 수 계산
+        function getTotalUniqueFriendsCount() {
+            const uniqueFriends = new Set();
+            Object.values(state.missionResponses).forEach(entries => {
+                if (Array.isArray(entries)) {
+                    entries.forEach(entry => {
+                        const cleanName = (entry.friendName || "").trim();
+                        if (cleanName) {
+                            uniqueFriends.add(cleanName);
+                        }
+                    });
+                }
+            });
+            return uniqueFriends.size;
+        }
+
+        // 최종 축하 화면 렌더링
+        function renderFinalScreen() {
+            SoundFX.playVictory();
+            topBar.classList.add("hidden");
+
+            const friendCount = getTotalUniqueFriendsCount();
+
+            document.getElementById("final-congrats-sub").textContent = `${state.playerName} 탐험가의 보물찾기 인증서`;
+            document.getElementById("stat-player-name").textContent = state.playerName;
+            document.getElementById("stat-mission-count").textContent = `${MISSIONS.length} / ${MISSIONS.length}개 완료`;
+            document.getElementById("stat-friend-count").textContent = `${friendCount}명`;
+            document.getElementById("stat-map-pieces").textContent = `${state.unlockedPieces} / 6조각`;
+
+            document.getElementById("final-goal-badge").textContent = state.selectedCategory;
+            document.getElementById("final-goal-content").textContent = state.goalText.trim();
+
+            document.getElementById("save-guide-box").classList.add("hidden");
+
+            showScreen("final");
+            fireGrandConfetti();
+        }
+
+        function fireGrandConfetti() {
+            if (typeof confetti !== "function") return;
+            const duration = 2500;
+            const end = Date.now() + duration;
+
+            (function frame() {
+                confetti({
+                    particleCount: 5,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 }
+                });
+                confetti({
+                    particleCount: 5,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 }
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+        }
+
+        // ==========================================
+        // 6. 이벤트 리스너 연결
+        // ==========================================
+        
+        // 시작하기 버튼
+        const playerNameInput = document.getElementById("player-name-input");
+        const nameError = document.getElementById("name-error");
+
+        document.getElementById("btn-start-game").addEventListener("click", () => {
+            const name = playerNameInput.value.trim();
+            if (!name) {
+                nameError.classList.remove("hidden");
+                playerNameInput.focus();
+                return;
+            }
+            nameError.classList.add("hidden");
+            state.playerName = name;
+            SoundFX.playClick();
+            topBar.classList.remove("hidden");
+            renderMission();
+        });
+
+        playerNameInput.addEventListener("input", () => {
+            if (playerNameInput.value.trim()) {
+                nameError.classList.add("hidden");
+            }
+        });
+
+        playerNameInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                document.getElementById("btn-start-game").click();
+            }
+        });
+
+        // 미션 완료 버튼
+        document.getElementById("btn-complete-mission").addEventListener("click", () => {
+            renderRewardScreen();
+        });
+
+        // 다음 미션으로 이동 버튼
+        document.getElementById("btn-next-mission").addEventListener("click", () => {
+            SoundFX.playClick();
+            if (state.currentMissionIndex < MISSIONS.length - 1) {
+                state.currentMissionIndex++;
+                renderMission();
+            }
+        });
+
+        // 완성된 보물지도 위 보물상자 열기 버튼
+        document.getElementById("btn-open-chest").addEventListener("click", () => {
+            SoundFX.playPieceUnlocked();
+            state.currentMissionIndex = MISSIONS.length;
+            updateHeader();
+            showScreen("goal");
+        });
+
+        // 새 학기 목표 카테고리 버튼 선택
+        const categoryBtns = document.querySelectorAll(".goal-cat-btn");
+        categoryBtns.forEach(btn => {
+            btn.addEventListener("click", () => {
+                SoundFX.playClick();
+                categoryBtns.forEach(b => {
+                    b.classList.remove("bg-orange-100", "border-orange-500", "ring-4", "ring-orange-200", "scale-105");
+                    b.classList.add("bg-white", "border-amber-300");
+                });
+                btn.classList.remove("bg-white", "border-amber-300");
+                btn.classList.add("bg-orange-100", "border-orange-500", "ring-4", "ring-orange-200", "scale-105");
+                
+                state.selectedCategory = btn.dataset.cat;
+                validateGoalScreen();
+            });
+        });
+
+        // 새 학기 목표 텍스트 입력
+        const goalTextInput = document.getElementById("goal-text-input");
+        goalTextInput.addEventListener("input", () => {
+            state.goalText = goalTextInput.value;
+            validateGoalScreen();
+        });
+
+        // 보물상자 열기 (최종 완료)
+        document.getElementById("btn-finish-treasure").addEventListener("click", () => {
+            renderFinalScreen();
+        });
+
+        // 결과 카드 이미지 저장하기 버튼
+        document.getElementById("btn-save-image").addEventListener("click", async () => {
+            SoundFX.playClick();
+            const cardEl = document.getElementById("capture-result-card");
+            const guideBox = document.getElementById("save-guide-box");
+            const guideText = document.getElementById("save-guide-text");
+
+            try {
+                if (typeof html2canvas !== "function") {
+                    throw new Error("html2canvas not loaded");
+                }
+                const canvas = await html2canvas(cardEl, {
+                    scale: 2,
+                    backgroundColor: "#FFFBEB",
+                    useCORS: true
+                });
+
+                const link = document.createElement("a");
+                const safeName = (state.playerName || "학생").replace(/\s+/g, "_");
+                link.download = `개학보물찾기_인증서_${safeName}.png`;
+                link.href = canvas.toDataURL("image/png");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                guideText.textContent = "✅ 결과 인증서 이미지가 저장되었어요! 다운로드 폴더를 확인해 보세요.";
+                guideBox.classList.remove("hidden");
+            } catch (err) {
+                guideText.textContent = "📸 아래 기기 버튼으로 화면을 캡처하여 나의 목표 카드를 저장해 보세요!";
+                guideBox.classList.remove("hidden");
+            }
+        });
+
+        // 축하 꽃가루 다시 쏘기
+        document.getElementById("btn-celebrate-more").addEventListener("click", () => {
+            SoundFX.playPieceUnlocked();
+            fireGrandConfetti();
+        });
+
+        // 처음부터 다시하기
+        document.getElementById("btn-restart").addEventListener("click", () => {
+            SoundFX.playClick();
+            state.playerName = "";
+            state.currentMissionIndex = 0;
+            state.unlockedPieces = 0;
+            state.missionResponses = {};
+            state.selectedCategory = "";
+            state.goalText = "";
+
+            playerNameInput.value = "";
+            goalTextInput.value = "";
+            categoryBtns.forEach(b => {
+                b.classList.remove("bg-orange-100", "border-orange-500", "ring-4", "ring-orange-200", "scale-105");
+                b.classList.add("bg-white", "border-amber-300");
+            });
+            validateGoalScreen();
+            topBar.classList.add("hidden");
+            showScreen("start");
+        });
+    </script>
+</body>
+</html>
